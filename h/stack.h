@@ -4,6 +4,7 @@
 
 
 #define STACK_NDEBUG
+//#define USE_CANARY
 
 
 
@@ -33,7 +34,6 @@ typedef int StackElem;
 #define stAssert(expr) stAssertFn(expr, #expr, __FILE__, __LINE__, __FUNCTION__)
 #define stCtor(st, capacity) stCtorDebug(st, capacity, __FILE__, __LINE__, __FUNCTION__)
 
-static const StackElem can_val = 0xB3A61C;
 static const StackElem poison_val = 0x34AEF7;
 
 
@@ -41,12 +41,35 @@ static const StackElem poison_val = 0x34AEF7;
 
 
 
+#ifdef USE_CANARY
+
+
+#define ST_ON_CANARY(...) __VA_ARGS__
+#define ST_ON_NO_CANARY(...) ;
+
+static const StackElem can_val = 0xB3A61C;
+
+
+#else
+
+
+#define ST_ON_CANARY(...) ;
+#define ST_ON_NO_CANARY(...) __VA_ARGS__
+
+
+#endif //USE_CANARY
+
+
+
 struct Stack
 {
+    ST_ON_CANARY
+    (
+        StackElem left_st_canary;
+    )
+
     ST_ON_DEBUG
     (
-        StackElem left_st_can;
-
         int st_hash, data_hash;
 
         const char *file_name, *func_born;
@@ -57,9 +80,9 @@ struct Stack
     int capacity;
     StackElem* data;
 
-    ST_ON_DEBUG
+    ST_ON_CANARY
     (
-        StackElem right_st_can;
+        StackElem right_st_canary;
     )
 };
 

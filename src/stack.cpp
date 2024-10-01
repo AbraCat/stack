@@ -12,8 +12,7 @@ int stMax(int a, int b)
     return a > b ? a : b;
 }
 
-#define DESCR_(err_code) case ERR_ ## err_code:\
-    return "ERR_" #err_code;
+#define DESCR_(err_code) case ERR_ ## err_code: return "ERR_" #err_code;
 
 const char* stStrError(int error)
 {
@@ -64,6 +63,11 @@ int stCtorNDebug(Stack* st, int capacity)
     st->capacity = capacity;
     st->data = NULL;
 
+    ST_ON_CANARY
+    (
+        st->left_st_canary = st->right_st_canary = can_val;
+    )
+
     return resize(st, capacity);
 }
 
@@ -74,11 +78,14 @@ int stCtorDebug(Stack* st, int capacity, const char* file_name, int line_born, c
 
     ST_ON_DEBUG
     (
-        st->left_st_can = st->right_st_can = can_val;
-
         st->file_name = file_name;
         st->line_born = line_born;
         st->func_born = func_born;
+    )
+
+    ST_ON_CANARY
+    (
+        st->left_st_canary = st->right_st_canary = can_val;
     )
 
     st->size = 0;
@@ -104,7 +111,6 @@ void stDtor(Stack* st)
 
 int hashFn(char* arr, int size)
 {
-
     int hash = 5381;
 
     if (arr == NULL)
@@ -129,10 +135,16 @@ void stUpdateHash(Stack* st)
     st->st_hash = hashFn((char*)st, sizeof(Stack));
 
 
+
+    ST_ON_NO_CANARY
+    (
+        st->data_hash = hashFn((char*)(st->data), st->capacity * sizeof(StackElem));
+        return;
+    )
+
     if (st->data == NULL)
     {
-        st->data_hash = hashFn((char*)st->data, st->capacity);
-
+        st->data_hash = hashFn((char*)(st->data), st->capacity * sizeof(StackElem));
         return;
     }
 
@@ -152,12 +164,12 @@ int resize(Stack* st, int new_capacity)
         return 0;
     }
 
-    ST_ON_RELEASE
+    ST_ON_NO_CANARY
     (
         st->data = (StackElem*)realloc(st->data, new_capacity * sizeof(StackElem));
     )
 
-    ST_ON_DEBUG
+    ST_ON_CANARY
     (
         st->data = (StackElem*)realloc(st->data == NULL ? NULL : st->data - 1, (new_capacity + 2) * sizeof(StackElem)) + 1;
     )
@@ -167,10 +179,13 @@ int resize(Stack* st, int new_capacity)
         return ERR_NOMEM;
     }
 
-    ST_ON_DEBUG
+    ST_ON_CANARY
     (
         st->data[-1] = st->data[new_capacity] = can_val;
+    )
 
+    ST_ON_DEBUG
+    (
         for (int i = st->size; i < new_capacity; ++i)
         {
             st->data[i] = poison_val;
@@ -256,8 +271,12 @@ int stError(Stack* st)
                 return ERR_POISON;
             }
         }
+    )
 
-        if (st->left_st_can != can_val || st->right_st_can != can_val)
+    ST_ON_CANARY
+    (
+        printf("aaa\n");
+        if (st->left_st_canary != can_val || st->right_st_canary != can_val)
         {
             return ERR_BAD_CANARY;
         }
@@ -266,9 +285,12 @@ int stError(Stack* st)
         {
             return ERR_BAD_CANARY;
         }
+    )
 
 
 
+    ST_ON_DEBUG
+    (
         const int st_hash_saved = st->st_hash, data_hash_saved = st->data_hash;
 
         stUpdateHash(st);
@@ -310,11 +332,14 @@ void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char
 
     fprintf(file, "size = %d\ncapacity = %d\n\n", st->size, st->capacity);
 
+    ST_ON_CANARY
+    (
+        fprintf(file, "left_st_canary = 0x%X\nright_st_canary = 0x%X\nleft_data_canary = 0x%X\nright_data_canary = 0x%X\n\n", 
+        st->left_st_canary, st->right_st_canary, st->data[-1], st->data[st->capacity]);
+    )
+
     ST_ON_DEBUG
     (
-        fprintf(file, "left_st_can = 0x%X\nright_st_can = 0x%X\nleft_data_can = 0x%X\nright_data_can = 0x%X\n\n", 
-        st->left_st_can, st->right_st_can, st->data[-1], st->data[st->capacity]);
-
         fprintf(file, "st_hash = %d\ndata_hash = %d\n\n", st->st_hash, st->data_hash);
     )
 
