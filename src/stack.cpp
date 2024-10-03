@@ -7,6 +7,11 @@
 
 
 
+StackElem poison_val = 3452663;
+StackElem canary_val = 0xB3A61C;
+
+
+
 #define DESCR_(err_code) case ERR_ ## err_code: return "ERR_" #err_code;
 
 const char* stStrError(stErrCode error)
@@ -66,6 +71,8 @@ stErrCode stCtorNDebug(Stack* st, int capacity)
 
     returnErr(resize(st, capacity));
 
+    stUpdateHash(st);
+
     returnErr(stErr(st));
     return ERR_OK;
 }
@@ -122,31 +129,25 @@ int hashFn(char* arr, int size)
     return hash;
 }
 
-void stUpdateHash(Stack* st)
+void stUpdateHashFn(Stack* st)
 {
-    ST_ON_DEBUG
+    ST_ON_HASH
     (
     stAssert(st != NULL);
 
     st->st_hash = st->data_hash = 0;
 
-    st->st_hash = hashFn((char*)st, sizeof(Stack));
-
-
-
     ST_ON_NO_CANARY
     (
-        st->data_hash = hashFn((char*)(st->data), st->capacity * sizeof(StackElem));
-        return;
+    st->st_hash = hashFn((char*)st, sizeof(Stack));
     )
 
-    if (st->data == NULL)
-    {
-        st->data_hash = hashFn((char*)(st->data), st->capacity * sizeof(StackElem));
-        return;
-    }
+    ST_ON_CANARY
+    (
+    st->st_hash = hashFn((char*)st + sizeof(StackElem), sizeof(Stack) - 2 * sizeof(StackElem));
+    )
 
-    st->data_hash = hashFn((char*)(st->data - 1), (st->capacity + 2) * sizeof(StackElem));
+    st->data_hash = hashFn((char*)(st->data), st->capacity * sizeof(StackElem));
     )
 }
 
@@ -286,7 +287,7 @@ stErrCode stErr(Stack* st)
 
 
 
-    ST_ON_DEBUG
+    ST_ON_HASH
     (
         const int st_hash_saved = st->st_hash, data_hash_saved = st->data_hash;
 
@@ -335,7 +336,7 @@ void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char
         st->left_st_canary, st->right_st_canary, st->data[-1], st->data[st->capacity]);
     )
 
-    ST_ON_DEBUG
+    ST_ON_HASH
     (
         fprintf(file, "st_hash = %d\ndata_hash = %d\n\n", st->st_hash, st->data_hash);
     )

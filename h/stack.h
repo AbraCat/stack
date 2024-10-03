@@ -3,14 +3,16 @@
 
 
 
-#define ST_NDEBUG
+// #define ST_NDEBUG
 
 
 
 #ifdef ST_NDEBUG
 #undef ST_USE_CANARY
+#undef ST_USE_HASH
 #else
 #define ST_USE_CANARY
+#define ST_USE_HASH
 #endif // ST_NDEBUG
 
 
@@ -20,7 +22,7 @@
 
 #define returnErr(expr)      \
 {                            \
-    stErrCode error = expr;        \
+    stErrCode error = expr;  \
     if (error) return error; \
 }
 
@@ -47,7 +49,7 @@ typedef int StackElem;
 #define stAssert(expr) stAssertFn(expr, #expr, __FILE__, __LINE__, __FUNCTION__)
 #define stCtor(st, capacity) stCtorDebug(st, capacity, __FILE__, __LINE__, __FUNCTION__)
 
-static const StackElem poison_val = 0x34AEF7;
+extern StackElem poison_val;
 
 
 #endif //ST_NDEBUG
@@ -60,7 +62,7 @@ static const StackElem poison_val = 0x34AEF7;
 #define ST_ON_CANARY(...) __VA_ARGS__
 #define ST_ON_NO_CANARY(...) ;
 
-static const StackElem canary_val = 0xB3A61C;
+extern StackElem canary_val;
 
 
 #else
@@ -74,6 +76,22 @@ static const StackElem canary_val = 0xB3A61C;
 
 
 
+#ifdef ST_USE_HASH
+
+#define ST_ON_HASH(...)  __VA_ARGS__
+
+#else
+
+#define ST_ON_HASH(...) ;
+
+#endif // ST_USE_HASH
+
+
+
+#define stUpdateHash(st) ST_ON_HASH(stUpdateHashFn(st);)
+
+
+
 struct Stack
 {
     ST_ON_CANARY
@@ -81,10 +99,13 @@ struct Stack
         StackElem left_st_canary;
     )
 
-    ST_ON_DEBUG
+    ST_ON_HASH
     (
         int st_hash, data_hash;
+    )
 
+    ST_ON_DEBUG
+    (
         const char *file_name, *func_born;
         int line_born;
     )
@@ -127,7 +148,7 @@ stErrCode stPush(Stack* st, StackElem elem);
 stErrCode stPop(Stack* st, StackElem* elem);
 
 int hashFn(char* arr, int size);
-void stUpdateHash(Stack* st);
+void stUpdateHashFn(Stack* st);
 stErrCode resize(Stack* st, int new_capacity);
 
 stErrCode stErr(Stack* st);
