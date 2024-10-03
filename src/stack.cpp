@@ -2,22 +2,18 @@
 #include <stdlib.h>
 
 #include <stack.h>
+#include <utils.h>
+#include <colors.h>
 
-int stMin(int a, int b)
-{
-    return a < b ? a : b;
-}
-int stMax(int a, int b)
-{
-    return a > b ? a : b;
-}
+
 
 #define DESCR_(err_code) case ERR_ ## err_code: return "ERR_" #err_code;
 
-const char* stStrError(int error)
+const char* stStrError(stErrCode error)
 {
     switch (error)
     {
+        DESCR_(OK);
         DESCR_(ASSERT)
         DESCR_(STACK_UNDERFLOW)
         DESCR_(NULL_STACK)
@@ -34,12 +30,12 @@ const char* stStrError(int error)
 
 #undef DESCR_
 
-void handleErrorFn(int error, const char* file, int line, const char* func)
+void handleErrFn(stErrCode error, const char* file, int line, const char* func)
 {
     if (!error)
         return;
 
-    printf("Error: %s\nat %s:%d function: %s\n", stStrError(error), file, line, func);
+    printf("%sError: %s%s\nat %s:%d function: %s\n", RED, stStrError(error), DEFAULT, file, line, func);
     
     exit(error);
 }
@@ -49,12 +45,12 @@ void stAssertFn(int expr, const char* str_expr, const char* file, int line, cons
     if (expr)
         return;
 
-    printf("Assrtion failed: %s\nat %s:%d function: %s\n", str_expr, file, line, func);
+    printf("%sAssrtion failed: %s%s\nat %s:%d function: %s\n", RED, str_expr, DEFAULT, file, line, func);
 
     exit(ERR_ASSERT);
 }
 
-int stCtorNDebug(Stack* st, int capacity)
+stErrCode stCtorNDebug(Stack* st, int capacity)
 {
     if (st == NULL)
         return ERR_NULL_STACK;
@@ -65,13 +61,16 @@ int stCtorNDebug(Stack* st, int capacity)
 
     ST_ON_CANARY
     (
-        st->left_st_canary = st->right_st_canary = can_val;
+        st->left_st_canary = st->right_st_canary = canary_val;
     )
 
-    return resize(st, capacity);
+    returnErr(resize(st, capacity));
+
+    returnErr(stErr(st));
+    return ERR_OK;
 }
 
-int stCtorDebug(Stack* st, int capacity, const char* file_name, int line_born, const char* func_born)
+stErrCode stCtorDebug(Stack* st, int capacity, const char* file_name, int line_born, const char* func_born)
 {
     if (st == NULL)
         return ERR_NULL_STACK;
@@ -85,27 +84,26 @@ int stCtorDebug(Stack* st, int capacity, const char* file_name, int line_born, c
 
     ST_ON_CANARY
     (
-        st->left_st_canary = st->right_st_canary = can_val;
+        st->left_st_canary = st->right_st_canary = canary_val;
     )
 
     st->size = 0;
     st->capacity = capacity;
     st->data = NULL;
 
-    int error = resize(st, capacity);
-
-    if (error)
-        return error;
+    returnErr(resize(st, capacity));
 
     stUpdateHash(st);
 
-    stAssert(stError(st) == 0);
-
-    return 0;
+    returnErr(stErr(st));
+    return ERR_OK;
 }
 
 void stDtor(Stack* st)
 {
+    if (st == NULL)
+        return;
+        
     free(st->data);
 }
 
@@ -152,7 +150,7 @@ void stUpdateHash(Stack* st)
     )
 }
 
-int resize(Stack* st, int new_capacity)
+stErrCode resize(Stack* st, int new_capacity)
 {
     stAssert(st != NULL);
 
@@ -161,7 +159,7 @@ int resize(Stack* st, int new_capacity)
     if (new_capacity == 0)
     {
         st->data = NULL;
-        return 0;
+        return ERR_OK;
     }
 
     ST_ON_NO_CANARY
@@ -181,7 +179,7 @@ int resize(Stack* st, int new_capacity)
 
     ST_ON_CANARY
     (
-        st->data[-1] = st->data[new_capacity] = can_val;
+        st->data[-1] = st->data[new_capacity] = canary_val;
     )
 
     ST_ON_DEBUG
@@ -192,12 +190,12 @@ int resize(Stack* st, int new_capacity)
         }
     )
 
-    return 0;
+    return ERR_OK;
 }
 
-int stPush(Stack* st, StackElem elem)
+stErrCode stPush(Stack* st, StackElem elem)
 {
-    stAssert(stError(st) == 0);
+    returnErr(stErr(st));
 
     if (st->size == st->capacity)
     {
@@ -208,14 +206,14 @@ int stPush(Stack* st, StackElem elem)
 
     stUpdateHash(st);
 
-    stAssert(stError(st) == 0);
+    returnErr(stErr(st));
 
-    return 0;
+    return ERR_OK;
 }
 
-int stPop(Stack* st, StackElem* elem)
+stErrCode stPop(Stack* st, StackElem* elem)
 {
-    stAssert(stError(st) == 0);
+    returnErr(stErr(st));
 
     if (st->size == 0)
         return ERR_STACK_UNDERFLOW;
@@ -234,12 +232,12 @@ int stPop(Stack* st, StackElem* elem)
 
     stUpdateHash(st);
 
-    stAssert(stError(st) == 0);
+    returnErr(stErr(st));
 
-    return 0;
+    return ERR_OK;
 }
 
-int stError(Stack* st)
+stErrCode stErr(Stack* st)
 {
     if (st == NULL)
     {
@@ -275,13 +273,12 @@ int stError(Stack* st)
 
     ST_ON_CANARY
     (
-        printf("aaa\n");
-        if (st->left_st_canary != can_val || st->right_st_canary != can_val)
+        if (st->left_st_canary != canary_val || st->right_st_canary != canary_val)
         {
             return ERR_BAD_CANARY;
         }
 
-        if (st->data != NULL && (st->data[-1] != can_val || st->data[st->capacity] != can_val))
+        if (st->data != NULL && (st->data[-1] != canary_val || st->data[st->capacity] != canary_val))
         {
             return ERR_BAD_CANARY;
         }
@@ -304,10 +301,10 @@ int stError(Stack* st)
             return ERR_BAD_HASH;
     )
 
-    return 0;
+    return ERR_OK;
 }
 
-void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char* func_name)
+void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char* func_name) //colors
 {
     static const int max_n_elem = 20;
 
@@ -351,32 +348,32 @@ void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char
 
     if (0 > st->size || st->size > st->capacity)
     {
-        fprintf(file, "%s", "Warning: size and/or capacity are incorrect\n\n");
+        fprintf(file, "%s%s%s", RED, "Warning: size and/or capacity are incorrect\n\n", DEFAULT);
     }
     else if (st->capacity > max_n_elem)
     {
         too_big = 1;
         if (st->size > max_n_elem)
         {
-            fprintf(file, "%s", "Warning: size is too big\n\n");
+            fprintf(file, "%s%s%s", RED, "Warning: size is too big\n\n", DEFAULT);
         }
         else
         {
-            fprintf(file, "%s", "Warning: capacity is too big\n\n");
+            fprintf(file, "%s%s%s", RED, "Warning: capacity is too big\n\n", DEFAULT);
         }
     }
 
     if (st->data == NULL)
         return;
 
-    int rgt1 = stMin(max_n_elem, stMin(st->size, st->capacity));
-    int rgt2 = stMin(max_n_elem, st->capacity);
+    int rgt1 = myMin(max_n_elem, myMin(st->size, st->capacity));
+    int rgt2 = myMin(max_n_elem, st->capacity);
 
     for (int i = 0; i < rgt1; ++i)
     {
         fprintf(file, "* [%d]: %d\n", i, st->data[i]);
     }
-    for (int i = stMax(st->size, 0); i < rgt2; ++i)
+    for (int i = myMax(st->size, 0); i < rgt2; ++i)
     {
         fprintf(file, "  [%d]: %d\n", i, st->data[i]);
     }

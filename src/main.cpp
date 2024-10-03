@@ -1,19 +1,20 @@
 #include <stdio.h>
 
 #include <stack.h>
+#include <utils.h>
 
 int main(int argc, const char* argv[])
 {
-    Stack st;
-    handleError(stCtor(&st, 0));
+    Stack st = {};
+    handleErr(stCtor(&st, 0));
     
-    int n_cycles = 1, max_size = 10;
+    int n_cycles = 1, max_size = 5;
 
     for (int j = 0; j < n_cycles; ++j)
     {
         for (int i = 0; i < max_size; ++i)
         {
-            handleError(stPush(&st, i));
+            handleErr(stPush(&st, i));
         }
 
         stDump(stdout, &st);
@@ -21,7 +22,7 @@ int main(int argc, const char* argv[])
         int x = 0;
         for (int i = 0; i < max_size; ++i)
         {
-            handleError(stPop(&st, &x));
+            handleErr(stPop(&st, &x));
         }
     }
 

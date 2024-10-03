@@ -3,19 +3,32 @@
 
 
 
-#define STACK_NDEBUG
-//#define USE_CANARY
+#define ST_NDEBUG
 
 
 
-#define handleError(error) handleErrorFn(error, __FILE__, __LINE__, __FUNCTION__)
+#ifdef ST_NDEBUG
+#undef ST_USE_CANARY
+#else
+#define ST_USE_CANARY
+#endif // ST_NDEBUG
+
+
+
+#define handleErr(expr) handleErrFn(expr, __FILE__, __LINE__, __FUNCTION__)
 #define stDump(file, st) stDumpFn(file, st, __FILE__, __LINE__, __FUNCTION__)
+
+#define returnErr(expr)      \
+{                            \
+    stErrCode error = expr;        \
+    if (error) return error; \
+}
 
 typedef int StackElem;
 
 
 
-#ifdef STACK_NDEBUG
+#ifdef ST_NDEBUG
 
 
 #define ST_ON_RELEASE(...) __VA_ARGS__
@@ -37,17 +50,17 @@ typedef int StackElem;
 static const StackElem poison_val = 0x34AEF7;
 
 
-#endif //STACK_NDEBUG
+#endif //ST_NDEBUG
 
 
 
-#ifdef USE_CANARY
+#ifdef ST_USE_CANARY
 
 
 #define ST_ON_CANARY(...) __VA_ARGS__
 #define ST_ON_NO_CANARY(...) ;
 
-static const StackElem can_val = 0xB3A61C;
+static const StackElem canary_val = 0xB3A61C;
 
 
 #else
@@ -57,7 +70,7 @@ static const StackElem can_val = 0xB3A61C;
 #define ST_ON_NO_CANARY(...) __VA_ARGS__
 
 
-#endif //USE_CANARY
+#endif //ST_USE_CANARY
 
 
 
@@ -86,9 +99,10 @@ struct Stack
     )
 };
 
-enum StError
+enum stErrCode
 {
-    ERR_ASSERT = 1,
+    ERR_OK,
+    ERR_ASSERT,
     ERR_STACK_UNDERFLOW,
     ERR_NULL_STACK,
     ERR_BAD_SIZE,
@@ -100,26 +114,23 @@ enum StError
 
 
 
-int stMin(int a, int b);
-int stMax(int a, int b);
-
-void handleErrorFn(int error, const char* file, int line, const char* func);
+const char* stStrError(stErrCode error);
+void handleErrFn(stErrCode error, const char* file, int line, const char* func);
 void stAssertFn(int expr, const char* str_expr, const char* file, int line, const char* func);
 
-int stCtorNDebug(Stack* st, int capacity);
-int stCtorDebug(Stack* st, int capacity, const char* file_name, int line_born, const char* func_born);
+stErrCode stCtorNDebug(Stack* st, int capacity);
+stErrCode stCtorDebug(Stack* st, int capacity, const char* file_name, int line_born, const char* func_born);
 
 void stDtor(Stack* st);
 
-int stPush(Stack* st, StackElem elem);
-int stPop(Stack* st, StackElem* elem);
+stErrCode stPush(Stack* st, StackElem elem);
+stErrCode stPop(Stack* st, StackElem* elem);
 
 int hashFn(char* arr, int size);
 void stUpdateHash(Stack* st);
-int resize(Stack* st, int new_capacity);
+stErrCode resize(Stack* st, int new_capacity);
 
-const char* stStrError(int error);
-int stError(Stack* st);
+stErrCode stErr(Stack* st);
 void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char* func_name);
 
 
