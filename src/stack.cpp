@@ -110,8 +110,49 @@ void stDtor(Stack* st)
 {
     if (st == NULL)
         return;
-        
-    free(st->data);
+
+    if (st->data != NULL)
+    {
+        ST_ON_CANARY
+        (
+            for (int i = -1; i <= st->capacity; ++i)
+            {
+                st->data[i] = 0;
+            }
+
+            free(st->data - 1);
+        )
+
+        ST_ON_NO_CANARY
+        (
+            for (int i = 0; i < st->capacity; ++i)
+            {
+                st->data[i] = 0;
+            }
+
+            free(st->data);
+        )
+
+        st->data = NULL;
+    }
+
+    st->size = st->capacity = 0;
+
+    ST_ON_CANARY
+    (
+        st->left_st_canary = st->right_st_canary = 0;
+    )
+
+    ST_ON_HASH
+    (
+        st->st_hash = st->data_hash = 0;
+    )
+
+    ST_ON_DEBUG
+    (
+        st->file_name = st->func_born = NULL;
+        st->line_born = 0;
+    )
 }
 
 int hashFn(char* arr, int size)
@@ -318,15 +359,24 @@ void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char
         st, file_name, line, func_name);
     )
 
-    if (st == NULL)
-        return;
-
     ST_ON_DEBUG
     (
-        fprintf(file, "Stack [0x%p] at %s:%d (function %s) born at %s:%d (function %s)\n\n", 
-        st, file_name, line, func_name, 
-        st->file_name == NULL ? "NULL" : st->file_name, st->line_born, st->func_born == NULL ? "NULL" : st->func_born);
+        if (st == NULL)
+        {
+            fprintf(file, "Stack [0x%p] at %s:%d (function %s) born at ???:??? (function ???)\n\n", 
+            st, file_name, line, func_name);
+        }
+
+        else
+        {
+            fprintf(file, "Stack [0x%p] at %s:%d (function %s) born at %s:%d (function %s)\n\n", 
+            st, file_name, line, func_name, 
+            st->file_name == NULL ? "NULL" : st->file_name, st->line_born, st->func_born == NULL ? "NULL" : st->func_born);
+        }
     )
+
+    if (st == NULL)
+        return;
 
     fprintf(file, "size = %d\ncapacity = %d\n\n", st->size, st->capacity);
 

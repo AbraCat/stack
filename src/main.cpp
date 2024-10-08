@@ -3,10 +3,14 @@
 #include <stack.h>
 #include <utils.h>
 
+#include <string.h> 
+ 
+#define siz sizeof(unsigned) * 8 
+
 int main(int argc, const char* argv[])
 {
     Stack st = {};
-    handleErr(stCtor(&st, 0));
+    handleErr(stCtor(&st, 3));
     
     int n_cycles = 1, max_size = 5;
 
@@ -24,8 +28,11 @@ int main(int argc, const char* argv[])
         {
             handleErr(stPop(&st, &x));
         }
+
+        stDump(stdout, &st);
     }
 
     stDtor(&st);
+
     return 0;
 }
