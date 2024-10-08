@@ -1,11 +1,7 @@
 #ifndef STACK_H
 #define STACK_H
 
-
-
-// #define ST_NDEBUG
-
-
+#define ST_NDEBUG
 
 #ifdef ST_NDEBUG
 #undef ST_USE_CANARY
@@ -26,31 +22,21 @@
     if (error) return error; \
 }
 
-typedef int StackElem;
-
 
 
 #ifdef ST_NDEBUG
 
-
 #define ST_ON_RELEASE(...) __VA_ARGS__
 #define ST_ON_DEBUG(...) ;
-
 #define stAssert(expr) ;
 #define stCtor(st, capacity) stCtorNDebug(st, capacity)
 
-
 #else
-
 
 #define ST_ON_RELEASE(...) ;
 #define ST_ON_DEBUG(...) __VA_ARGS__
-
 #define stAssert(expr) stAssertFn(expr, #expr, __FILE__, __LINE__, __FUNCTION__)
 #define stCtor(st, capacity) stCtorDebug(st, capacity, __FILE__, __LINE__, __FUNCTION__)
-
-extern StackElem poison_val;
-
 
 #endif //ST_NDEBUG
 
@@ -58,39 +44,27 @@ extern StackElem poison_val;
 
 #ifdef ST_USE_CANARY
 
-
 #define ST_ON_CANARY(...) __VA_ARGS__
 #define ST_ON_NO_CANARY(...) ;
 
-extern StackElem canary_val;
-
-
 #else
-
 
 #define ST_ON_CANARY(...) ;
 #define ST_ON_NO_CANARY(...) __VA_ARGS__
-
 
 #endif //ST_USE_CANARY
 
 
 
 #ifdef ST_USE_HASH
-
 #define ST_ON_HASH(...)  __VA_ARGS__
-
 #else
-
 #define ST_ON_HASH(...) ;
-
 #endif // ST_USE_HASH
 
 
 
-#define stUpdateHash(st) ST_ON_HASH(stUpdateHashFn(st);)
-
-
+typedef int StackElem;
 
 struct Stack
 {
@@ -147,13 +121,9 @@ void stDtor(Stack* st);
 stErrCode stPush(Stack* st, StackElem elem);
 stErrCode stPop(Stack* st, StackElem* elem);
 
-int hashFn(char* arr, int size);
-void stUpdateHashFn(Stack* st);
 stErrCode resize(Stack* st, int new_capacity);
 
 stErrCode stErr(Stack* st);
 void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char* func_name);
-
-
 
 #endif //STACK_H

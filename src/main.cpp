@@ -28,13 +28,9 @@ int main(int argc, const char* argv[])
         {
             handleErr(stPop(&st, &x));
         }
-
-        stDump(stdout, &st);
     }
 
     stDtor(&st);
-
-    stDump(stdout, &st);
 
     return 0;
 }

@@ -5,17 +5,21 @@
 #include <utils.h>
 #include <colors.h>
 
+#define stUpdateHash(st) ST_ON_HASH(stUpdateHashFn(st);)
+
+static const StackElem poison_val = 3452663;
+static const StackElem canary_val = 0xB3A61C;
+
+static int hashFn(char* arr, int size);
+static void stUpdateHashFn(Stack* st);
 
 
-StackElem poison_val = 3452663;
-StackElem canary_val = 0xB3A61C;
-
-
-
-#define DESCR_(err_code) case ERR_ ## err_code: return "ERR_" #err_code;
 
 const char* stStrError(stErrCode error)
 {
+    #define DESCR_(err_code) case ERR_ ## err_code: \
+        return "ERR_" #err_code;
+
     switch (error)
     {
         DESCR_(OK);
@@ -31,9 +35,9 @@ const char* stStrError(stErrCode error)
         default:
             return "Unknown error";
     }
-}
 
-#undef DESCR_
+    #undef DESCR_
+}
 
 void handleErrFn(stErrCode error, const char* file, int line, const char* func)
 {
@@ -155,7 +159,7 @@ void stDtor(Stack* st)
     )
 }
 
-int hashFn(char* arr, int size)
+static int hashFn(char* arr, int size)
 {
     int hash = 5381;
 
@@ -170,7 +174,7 @@ int hashFn(char* arr, int size)
     return hash;
 }
 
-void stUpdateHashFn(Stack* st)
+static void stUpdateHashFn(Stack* st)
 {
     ST_ON_HASH
     (
@@ -384,11 +388,13 @@ void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char
     (
         fprintf(file, "left_st_canary = 0x%X\nright_st_canary = 0x%X\n", 
         st->left_st_canary, st->right_st_canary);
+
         if (st->data != NULL)
         {
             fprintf(file, "left_data_canary = 0x%X\nright_data_canary = 0x%X\n", 
             st->data[-1], st->data[st->capacity]);
         }
+
         fputc('\n', file);
     )
 
