@@ -34,5 +34,7 @@ int main(int argc, const char* argv[])
 
     stDtor(&st);
 
+    stDump(stdout, &st);
+
     return 0;
 }

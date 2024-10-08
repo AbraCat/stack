@@ -346,7 +346,7 @@ stErrCode stErr(Stack* st)
     return ERR_OK;
 }
 
-void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char* func_name) //colors
+void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char* func_name)
 {
     static const int max_n_elem = 20;
 
@@ -382,8 +382,14 @@ void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char
 
     ST_ON_CANARY
     (
-        fprintf(file, "left_st_canary = 0x%X\nright_st_canary = 0x%X\nleft_data_canary = 0x%X\nright_data_canary = 0x%X\n\n", 
-        st->left_st_canary, st->right_st_canary, st->data[-1], st->data[st->capacity]);
+        fprintf(file, "left_st_canary = 0x%X\nright_st_canary = 0x%X\n", 
+        st->left_st_canary, st->right_st_canary);
+        if (st->data != NULL)
+        {
+            fprintf(file, "left_data_canary = 0x%X\nright_data_canary = 0x%X\n", 
+            st->data[-1], st->data[st->capacity]);
+        }
+        fputc('\n', file);
     )
 
     ST_ON_HASH
