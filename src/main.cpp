@@ -1,11 +1,9 @@
 #include <stdio.h>
+#include <string.h> 
 
 #include <stack.h>
 #include <utils.h>
-
-#include <string.h> 
- 
-#define siz sizeof(unsigned) * 8 
+#include <colors.h>
 
 int main(int argc, const char* argv[])
 {
@@ -31,6 +29,8 @@ int main(int argc, const char* argv[])
     }
 
     stDtor(&st);
+
+    // stDump(stdout, &st);
 
     return 0;
 }

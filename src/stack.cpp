@@ -7,8 +7,8 @@
 
 #define stUpdateHash(st) ST_ON_HASH(stUpdateHashFn(st);)
 
-static const StackElem poison_val = 3452663;
-static const StackElem canary_val = 0xB3A61C;
+static const StackElem poison_val = 3452663, canary_val = 0xB3A61C;
+static const int capacity_increase = 2, capacity_decrease = 2, capacity_decrease_condition = 4;
 
 static int hashFn(char* arr, int size);
 static void stUpdateHashFn(Stack* st);
@@ -81,16 +81,16 @@ stErrCode stCtorNDebug(Stack* st, int capacity)
     return ERR_OK;
 }
 
-stErrCode stCtorDebug(Stack* st, int capacity, const char* file_name, int line_born, const char* func_born)
+stErrCode stCtorDebug(Stack* st, int capacity, const char* file_born, int line_born, const char* func_born)
 {
     if (st == NULL)
         return ERR_NULL_STACK;
 
     ST_ON_DEBUG
     (
-        st->file_name = file_name;
-        st->line_born = line_born;
-        st->func_born = func_born;
+        st->debug.file_born = file_born;
+        st->debug.line_born = line_born;
+        st->debug.func_born = func_born;
     )
 
     ST_ON_CANARY
@@ -115,13 +115,16 @@ void stDtor(Stack* st)
     if (st == NULL)
         return;
 
+    int fill_val = 0;
+    ST_ON_DEBUG(fill_val = poison_val);
+
     if (st->data != NULL)
     {
         ST_ON_CANARY
         (
             for (int i = -1; i <= st->capacity; ++i)
             {
-                st->data[i] = 0;
+                st->data[i] = fill_val;
             }
 
             free(st->data - 1);
@@ -131,7 +134,7 @@ void stDtor(Stack* st)
         (
             for (int i = 0; i < st->capacity; ++i)
             {
-                st->data[i] = 0;
+                st->data[i] = fill_val;
             }
 
             free(st->data);
@@ -140,22 +143,20 @@ void stDtor(Stack* st)
         st->data = NULL;
     }
 
-    st->size = st->capacity = 0;
+    st->size = st->capacity = fill_val;
 
     ST_ON_CANARY
     (
-        st->left_st_canary = st->right_st_canary = 0;
+        st->left_st_canary = st->right_st_canary = fill_val;
     )
-
     ST_ON_HASH
     (
-        st->st_hash = st->data_hash = 0;
+        st->st_hash = st->data_hash = fill_val;
     )
-
     ST_ON_DEBUG
     (
-        st->file_name = st->func_born = NULL;
-        st->line_born = 0;
+        st->debug.file_born = st->debug.func_born = NULL;
+        st->debug.line_born = fill_val;
     )
 }
 
@@ -178,21 +179,21 @@ static void stUpdateHashFn(Stack* st)
 {
     ST_ON_HASH
     (
-    stAssert(st != NULL);
+        stAssert(st != NULL);
 
-    st->st_hash = st->data_hash = 0;
+        st->st_hash = st->data_hash = 0;
 
-    ST_ON_NO_CANARY
-    (
-    st->st_hash = hashFn((char*)st, sizeof(Stack));
-    )
+        ST_ON_NO_CANARY
+        (
+        st->st_hash = hashFn((char*)st, sizeof(Stack));
+        )
 
-    ST_ON_CANARY
-    (
-    st->st_hash = hashFn((char*)st + sizeof(StackElem), sizeof(Stack) - 2 * sizeof(StackElem));
-    )
+        ST_ON_CANARY
+        (
+        st->st_hash = hashFn((char*)st + sizeof(StackElem), sizeof(Stack) - 2 * sizeof(StackElem));
+        )
 
-    st->data_hash = hashFn((char*)(st->data), st->capacity * sizeof(StackElem));
+        st->data_hash = hashFn((char*)(st->data), st->capacity * sizeof(StackElem));
     )
 }
 
@@ -201,33 +202,33 @@ stErrCode resize(Stack* st, int new_capacity)
     stAssert(st != NULL);
 
     st->capacity = new_capacity;
-
     if (new_capacity == 0)
     {
         st->data = NULL;
         return ERR_OK;
     }
 
+    StackElem* new_data = NULL;
     ST_ON_NO_CANARY
     (
-        st->data = (StackElem*)realloc(st->data, new_capacity * sizeof(StackElem));
+        new_data = (StackElem*)realloc(st->data, new_capacity * sizeof(StackElem));
     )
-
     ST_ON_CANARY
     (
-        st->data = (StackElem*)realloc(st->data == NULL ? NULL : st->data - 1, (new_capacity + 2) * sizeof(StackElem)) + 1;
+        new_data = (StackElem*)realloc(st->data == NULL ? NULL : st->data - 1, (new_capacity + 2) * sizeof(StackElem)) + 1;
     )
 
-    if (st->data == NULL)
+    if (new_data == NULL)
     {
         return ERR_NOMEM;
     }
+
+    st->data = new_data;
 
     ST_ON_CANARY
     (
         st->data[-1] = st->data[new_capacity] = canary_val;
     )
-
     ST_ON_DEBUG
     (
         for (int i = st->size; i < new_capacity; ++i)
@@ -245,15 +246,13 @@ stErrCode stPush(Stack* st, StackElem elem)
 
     if (st->size == st->capacity)
     {
-        resize(st, st->capacity == 0 ? 1 : st->capacity * 2);
+        returnErr(resize(st, st->capacity == 0 ? 1 : st->capacity * capacity_increase));
     }
 
     st->data[st->size++] = elem;
 
     stUpdateHash(st);
-
     returnErr(stErr(st));
-
     return ERR_OK;
 }
 
@@ -271,15 +270,13 @@ stErrCode stPop(Stack* st, StackElem* elem)
         st->data[st->size] = poison_val;
     )
 
-    if (st->size <= st->capacity / 4)
+    if (st->size <= st->capacity / capacity_decrease_condition)
     {
-        resize(st, st->capacity / 2);
+        returnErr(resize(st, st->capacity / capacity_decrease));
     }
 
     stUpdateHash(st);
-
     returnErr(stErr(st));
-
     return ERR_OK;
 }
 
@@ -297,7 +294,7 @@ stErrCode stErr(Stack* st)
 
     ST_ON_DEBUG
     (
-        if (st->file_name == NULL || st->func_born == NULL)
+        if (st->debug.file_born == NULL || st->debug.func_born == NULL)
         {
             return ERR_NULL_STACK;
         }
@@ -352,50 +349,80 @@ stErrCode stErr(Stack* st)
 
 void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char* func_name)
 {
+    #define PRINT_ERR(err) printf("%sstDump(): %s%s\n", MAGENTA, stStrError(ERR_ ## err), DEFAULT)
     static const int max_n_elem = 20;
 
     if (file == NULL || file_name == NULL || func_name == NULL)
+    {
+        PRINT_ERR(NULL_STACK);
         return;
+    }
+
+    if (st == NULL)
+    {
+        fprintf(file, "Stack [%sNULL%s] at %s:%d (function %s)\n\n", 
+        MAGENTA, DEFAULT, line, func_name);
+        PRINT_ERR(NULL_STACK);
+        return;
+    }
 
     ST_ON_RELEASE
     (
         fprintf(file, "Stack [0x%p] at %s:%d (function %s)\n\n", 
         st, file_name, line, func_name);
     )
-
     ST_ON_DEBUG
     (
-        if (st == NULL)
-        {
-            fprintf(file, "Stack [0x%p] at %s:%d (function %s) born at ???:??? (function ???)\n\n", 
-            st, file_name, line, func_name);
-        }
-
-        else
-        {
-            fprintf(file, "Stack [0x%p] at %s:%d (function %s) born at %s:%d (function %s)\n\n", 
-            st, file_name, line, func_name, 
-            st->file_name == NULL ? "NULL" : st->file_name, st->line_born, st->func_born == NULL ? "NULL" : st->func_born);
-        }
+        fprintf(file, "Stack [0x%p] at %s:%d (function %s) born at %s:%d (function %s)\n\n", 
+        st, file_name, line, func_name, 
+        st->debug.file_born == NULL ? "???" : st->debug.file_born, st->debug.line_born, 
+        st->debug.func_born == NULL ? "???" : st->debug.func_born);
     )
 
-    if (st == NULL)
-        return;
-
     fprintf(file, "size = %d\ncapacity = %d\n\n", st->size, st->capacity);
+
+    int too_big = 0;
+    if (0 > st->size || st->size > st->capacity)
+    {
+        fprintf(file, "%s%s%s", MAGENTA, "Warning: size and/or capacity are incorrect\n\n", DEFAULT);
+        PRINT_ERR(BAD_SIZE);
+    }
+    else if (st->capacity > max_n_elem)
+    {
+        too_big = 1;
+        if (st->size > max_n_elem)
+        {
+            fprintf(file, "%s%s%s", MAGENTA, "Warning: size is too big\n\n", DEFAULT);
+        }
+        else
+        {
+            fprintf(file, "%s%s%s", MAGENTA, "Warning: capacity is too big\n\n", DEFAULT);
+        }
+    }
 
     ST_ON_CANARY
     (
         fprintf(file, "left_st_canary = 0x%X\nright_st_canary = 0x%X\n", 
         st->left_st_canary, st->right_st_canary);
+        if (st->left_st_canary != canary_val || st->right_st_canary != canary_val)
+        {
+            fprintf(file, "%sWarning: bad stack canary%s\n", MAGENTA, DEFAULT);
+            PRINT_ERR(BAD_CANARY);
+        }
 
         if (st->data != NULL)
         {
             fprintf(file, "left_data_canary = 0x%X\nright_data_canary = 0x%X\n", 
             st->data[-1], st->data[st->capacity]);
+            if (st->data[-1] != canary_val || st->data[st->capacity] != canary_val)
+            {
+                fprintf(file, "%sWarning: bad data canary%s\n", MAGENTA, DEFAULT);
+                PRINT_ERR(BAD_CANARY);
+            }
         }
 
         fputc('\n', file);
+
     )
 
     ST_ON_HASH
@@ -405,29 +432,15 @@ void stDumpFn(FILE* file, Stack* st, const char* file_name, int line, const char
 
 
 
+    if (st->data == NULL)
+    {
+        fprintf(file, "data [%sNULL%s]:\n\n", MAGENTA, DEFAULT);
+        PRINT_ERR(NULL_STACK);
+        return;
+    }
+
     fprintf(file, "data [0x%p]:\n\n", st->data);
 
-    int too_big = 0;
-
-    if (0 > st->size || st->size > st->capacity)
-    {
-        fprintf(file, "%s%s%s", RED, "Warning: size and/or capacity are incorrect\n\n", DEFAULT);
-    }
-    else if (st->capacity > max_n_elem)
-    {
-        too_big = 1;
-        if (st->size > max_n_elem)
-        {
-            fprintf(file, "%s%s%s", RED, "Warning: size is too big\n\n", DEFAULT);
-        }
-        else
-        {
-            fprintf(file, "%s%s%s", RED, "Warning: capacity is too big\n\n", DEFAULT);
-        }
-    }
-
-    if (st->data == NULL)
-        return;
 
     int rgt1 = myMin(max_n_elem, myMin(st->size, st->capacity));
     int rgt2 = myMin(max_n_elem, st->capacity);

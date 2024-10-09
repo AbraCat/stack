@@ -62,9 +62,17 @@
 #define ST_ON_HASH(...) ;
 #endif // ST_USE_HASH
 
+#define DEBUG_DATA ST_ON_DEBUG(DebugData debug;)
+
 
 
 typedef int StackElem;
+
+struct DebugData
+{
+    const char *file_born, *func_born;
+    int line_born;
+};
 
 struct Stack
 {
@@ -78,11 +86,7 @@ struct Stack
         int st_hash, data_hash;
     )
 
-    ST_ON_DEBUG
-    (
-        const char *file_name, *func_born;
-        int line_born;
-    )
+    DEBUG_DATA
 
     int size;
     int capacity;
